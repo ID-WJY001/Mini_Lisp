@@ -44,7 +44,7 @@ public:
 class BooleanLiteralToken : public Token {
 private:
     bool value;
-
+    
 public:
     BooleanLiteralToken(bool value) : Token(TokenType::BOOLEAN_LITERAL), value{value} {}
 

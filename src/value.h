@@ -3,11 +3,17 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <optional>
 
 class Value{
 public:
     virtual ~Value()=default;
     virtual std::string toString()const = 0;
+    bool isSelfEvaluating();
+    bool isNil();
+    bool isPair();
+    virtual std::optional<std::string> asSymbol();
+    std::vector<std::shared_ptr<Value>> toVector();
 };
 
 using ValuePtr = std::shared_ptr<Value>;
@@ -47,13 +53,13 @@ private:
 public:
     SymbolValue(const std::string& name);
     std::string toString()const override;
+    std::optional<std::string> asSymbol()override;
 };
 
 class PairValue:public Value{
-private:
+public:    
     ValuePtr l; 
     ValuePtr r;
-public:
     PairValue(ValuePtr l,ValuePtr r);
     std::string toString()const override;
 };
