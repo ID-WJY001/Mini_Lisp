@@ -60,6 +60,7 @@ std::string PairValue::toString() const {
 bool Value::isSelfEvaluating() {
     return typeid(*this) == typeid(BooleanValue) || 
            typeid(*this) == typeid(NumericValue) || 
+           typeid(*this) == typeid(BuiltinProcValue) || 
            typeid(*this) == typeid(StringValue);
 }
 
@@ -77,13 +78,11 @@ std::vector<ValuePtr> Value::toVector() {
     }
     if (!this->isPair()) {
         throw std::runtime_error("Cannot convert non-list Value to vector. Value is not a Pair or Nil: " + this->toString());
-    }
+    } 
     std::vector<ValuePtr> vec;
-    // *** 修正: 初始化 current_node_ptr 指向 this (列表头部)，在循环外部 ***
     Value* current_node_ptr = this;
     while (true) {
         if (typeid(*current_node_ptr) == typeid(PairValue)) {
-            // 如果函数是 const, pair 也应该是 const
             PairValue* pair = static_cast<PairValue*>(current_node_ptr);
             vec.push_back(pair->l); 
             current_node_ptr = pair->r.get();
@@ -104,4 +103,20 @@ std::optional<std::string> Value::asSymbol(){
 
 std::optional<std::string> SymbolValue::asSymbol(){
     return this->name; 
+}
+
+std::string BuiltinProcValue :: toString() const {
+    return "#<procedure>";
+}
+
+bool Value::isNumber(){
+    return typeid(*this) == typeid(NumericValue);
+}
+
+int Value::asNumber(){
+    throw std::runtime_error("Not a NumericValue");
+}
+
+int NumericValue::asNumber(){
+    return static_cast<int>(value);
 }

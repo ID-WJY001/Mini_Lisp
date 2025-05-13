@@ -12,6 +12,8 @@ public:
     bool isSelfEvaluating();
     bool isNil();
     bool isPair();
+    bool isNumber();
+    virtual int asNumber();
     virtual std::optional<std::string> asSymbol();
     std::vector<std::shared_ptr<Value>> toVector();
 };
@@ -32,6 +34,7 @@ private:
 public:
     NumericValue(double value);
     std::string toString()const override;
+    int asNumber()override;
 };
 
 class StringValue:public Value{
@@ -57,11 +60,23 @@ public:
 };
 
 class PairValue:public Value{
-public:    
-    ValuePtr l; 
+public:
+    ValuePtr l;
     ValuePtr r;
     PairValue(ValuePtr l,ValuePtr r);
     std::string toString()const override;
+};
+
+using BuiltinFuncType = ValuePtr(const std::vector<ValuePtr>&);
+
+class BuiltinProcValue : public Value {
+    BuiltinFuncType* func;
+public:
+    BuiltinProcValue(BuiltinFuncType* func):func{func}{}
+    std::string toString()const override;
+    BuiltinFuncType* get_function_pointer(){
+        return func;
+    }
 };
 
 #endif
