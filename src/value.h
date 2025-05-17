@@ -13,9 +13,16 @@ public:
     bool isNil();
     bool isPair();
     bool isNumber();
+    bool isString();
+    bool isBoolean();
+    bool isSymbol();
+    bool isList();
+    bool isProcedure();
     virtual int asNumber();
     virtual std::optional<std::string> asSymbol();
+    virtual std::string asString();
     std::vector<std::shared_ptr<Value>> toVector();
+    virtual bool isLispFalse();
 };
 
 using ValuePtr = std::shared_ptr<Value>;
@@ -26,6 +33,7 @@ private:
 public:
     BooleanValue(bool value);
     std::string toString()const override;
+    bool isLispFalse()override;
 };
 
 class NumericValue:public Value{
@@ -43,6 +51,7 @@ private:
 public:
     StringValue(const std::string& value);
     std::string toString()const override;
+    std::string asString()override;
 };
 
 class NilValue:public Value{
@@ -78,5 +87,16 @@ public:
         return func;
     }
 };
+
+class LambdaValue : public Value {
+private:
+    std::vector<std::string> params;
+    std::vector<ValuePtr> body;
+    // [...]
+public:
+    std::string toString() const override; 
+};
+  
+ValuePtr toList(std::vector<ValuePtr>& params);
 
 #endif

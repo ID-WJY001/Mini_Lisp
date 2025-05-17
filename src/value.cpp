@@ -46,7 +46,8 @@ std::string PairValue::toString() const {
     while (true) {
         if (typeid(*temp) == typeid(NilValue)) {
             return result + ")";
-        } else if (typeid(*temp) == typeid(PairValue)) {
+        } 
+        else if (typeid(*temp) == typeid(PairValue)) {
             auto pair = static_cast<const PairValue&>(*temp);
             result += " " + pair.l->toString();
             temp = pair.r;
@@ -58,10 +59,7 @@ std::string PairValue::toString() const {
 }
 
 bool Value::isSelfEvaluating() {
-    return typeid(*this) == typeid(BooleanValue) || 
-           typeid(*this) == typeid(NumericValue) || 
-           typeid(*this) == typeid(BuiltinProcValue) || 
-           typeid(*this) == typeid(StringValue);
+    return typeid(*this) == typeid(BooleanValue) || typeid(*this) == typeid(NumericValue) || typeid(*this) == typeid(BuiltinProcValue) || typeid(*this) == typeid(StringValue);
 }
 
 bool Value::isNil() {
@@ -70,6 +68,14 @@ bool Value::isNil() {
 
 bool Value::isPair() {
     return typeid(*this) == typeid(PairValue);
+}
+
+bool Value::isBoolean() {
+    return typeid(*this) == typeid(BooleanValue);
+}
+
+bool Value::isSymbol() {
+    return typeid(*this) == typeid(SymbolValue);
 }
 
 std::vector<ValuePtr> Value::toVector() {
@@ -109,8 +115,38 @@ std::string BuiltinProcValue :: toString() const {
     return "#<procedure>";
 }
 
+std::string LambdaValue :: toString() const {
+    return "#<procedure>";
+}
+\
 bool Value::isNumber(){
     return typeid(*this) == typeid(NumericValue);
+}
+
+bool Value::isString(){
+    return typeid(*this) == typeid(StringValue);
+}
+
+bool Value::isList(){
+    if(!this->isPair()){
+        return false;
+    }
+    PairValue* current = static_cast<PairValue*>(this);
+    while(true) {
+        if(current->r->isNil()){
+            return true;
+        }
+        else if(current->r->isPair()){
+            current = static_cast<PairValue*>(current->r.get());
+        }
+        else {
+            return false;
+        }
+    }
+}
+
+bool Value::isProcedure(){
+    return typeid(*this) == typeid(BuiltinProcValue);
 }
 
 int Value::asNumber(){
@@ -119,4 +155,36 @@ int Value::asNumber(){
 
 int NumericValue::asNumber(){
     return static_cast<int>(value);
+}
+
+bool Value::isLispFalse(){
+    return false;
+}
+
+bool BooleanValue::isLispFalse(){
+    return !value;
+}
+
+std::string Value::asString(){
+    throw std::runtime_error("Not a StringValue");
+}
+
+std::string StringValue::asString(){
+    return value;
+}
+
+ValuePtr toList(std::vector<ValuePtr>& params){
+    if (params.empty()){
+        return std::make_shared<NilValue>();
+    }
+    auto head = std::make_shared<PairValue>(params.front(), std::make_shared<NilValue>());
+    ValuePtr current = head;
+    params.erase(params.begin());
+    while(!params.empty()){
+        auto newPair = std::make_shared<PairValue>(params.front(), std::make_shared<NilValue>());
+        static_cast<PairValue*>(current.get())->r = newPair;
+        current = newPair;
+        params.erase(params.begin());
+    }
+    return head;
 }

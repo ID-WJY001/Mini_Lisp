@@ -8,5 +8,3 @@
 using BuiltinProceduresMap = std::unordered_map<std::string, ValuePtr>;
 
 const BuiltinProceduresMap& get_builtin_procedures();
-
-ValuePtr add(const std::vector<ValuePtr>& params);
