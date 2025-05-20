@@ -1,11 +1,11 @@
 #include <iostream>
 #include <string>
-//#include "rjsj_test.hpp"
+#include "rjsj_test.hpp"
 #include "./tokenizer.h"
 #include "./value.h"
 #include "./parser.h"
 #include "./eval_env.h"
-/*struct TestCtx {
+struct TestCtx {
     EvalEnv env;
     std::string eval(std::string input) {
         auto tokens = Tokenizer::tokenize(input);
@@ -14,9 +14,9 @@
         auto result = env.eval(std::move(value));
         return result->toString();
     }
-};*/
+};
 int main() {
-    //RJSJ_TEST(TestCtx, Lv2, Lv3, Lv4, Lv5, Lv5Extra);
+    RJSJ_TEST(TestCtx, Lv2, Lv3, Lv4, Lv5, Lv5Extra);
     EvalEnv env;
     while (true) {
         try {

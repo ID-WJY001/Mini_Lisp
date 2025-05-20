@@ -6,7 +6,7 @@
 
 using namespace std::literals;
 
-ValuePtr EvalEnv::eval(ValuePtr &expr) {
+ValuePtr EvalEnv::eval(const ValuePtr &expr) {
     if (auto name_opt = expr->asSymbol()) {
         const std::string& name = *name_opt; 
         auto it = symbol_map.find(name);

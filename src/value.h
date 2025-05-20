@@ -23,6 +23,7 @@ public:
     virtual std::string asString();
     std::vector<std::shared_ptr<Value>> toVector();
     virtual bool isLispFalse();
+    virtual bool getboolValue();
 };
 
 using ValuePtr = std::shared_ptr<Value>;
@@ -31,6 +32,7 @@ class BooleanValue:public Value{
 private:
     bool value;
 public:
+    bool getboolValue()override;
     BooleanValue(bool value);
     std::string toString()const override;
     bool isLispFalse()override;
@@ -90,10 +92,12 @@ public:
 
 class LambdaValue : public Value {
 private:
+    std::string name;
     std::vector<std::string> params;
     std::vector<ValuePtr> body;
     // [...]
 public:
+    LambdaValue(std::string name, std::vector<std::string> params, std::vector<ValuePtr> body):name{name}, params{params}, body{body}{}
     std::string toString() const override; 
 };
   

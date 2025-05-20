@@ -1,4 +1,5 @@
 #include "value.h"
+#include "error.h"
 #include <string>
 #include <vector>
 #include <memory>
@@ -150,7 +151,7 @@ bool Value::isProcedure(){
 }
 
 int Value::asNumber(){
-    throw std::runtime_error("Not a NumericValue");
+    throw LispError("Not a NumericValue");
 }
 
 int NumericValue::asNumber(){
@@ -166,7 +167,7 @@ bool BooleanValue::isLispFalse(){
 }
 
 std::string Value::asString(){
-    throw std::runtime_error("Not a StringValue");
+    throw LispError("Not a StringValue");
 }
 
 std::string StringValue::asString(){
@@ -187,4 +188,12 @@ ValuePtr toList(std::vector<ValuePtr>& params){
         params.erase(params.begin());
     }
     return head;
+}
+
+bool Value::getboolValue(){
+    throw LispError("Not a BooleanValue");
+}
+
+bool BooleanValue::getboolValue(){
+    return value;
 }

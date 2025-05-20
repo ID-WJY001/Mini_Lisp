@@ -20,7 +20,7 @@ public:
     EvalEnv();
     EvalEnv(const EvalEnv& v)=default;
     std::unordered_map<std::string,ValuePtr> symbol_map{};
-    ValuePtr eval(ValuePtr &expr);
+    ValuePtr eval(const ValuePtr &expr);
     std::vector<ValuePtr> evalList(ValuePtr expr); // 建议改为 const ValuePtr& 或 ValuePtr&
     ValuePtr apply(ValuePtr proc, std::vector<ValuePtr> args);
 };
