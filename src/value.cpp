@@ -1,5 +1,6 @@
 #include "value.h"
 #include "error.h"
+
 #include <string>
 #include <vector>
 #include <memory>
@@ -116,10 +117,32 @@ std::string BuiltinProcValue :: toString() const {
     return "#<procedure>";
 }
 
-std::string LambdaValue :: toString() const {
+LambdaValue::LambdaValue(std::string name,
+                         const std::vector<std::string>& params,
+                         const std::vector<ValuePtr>& body,
+                         std::shared_ptr<EvalEnv> env)
+    : name(std::move(name)),
+      params(params),
+      body(body),
+      captured_env(std::move(env)) {
+    // Constructor body, if any
+}
+
+std::string LambdaValue::toString() const {
     return "#<procedure>";
 }
-\
+
+const std::vector<std::string>& LambdaValue::get_params() const {
+    return params;
+}
+
+const std::vector<ValuePtr>& LambdaValue::get_body() const {
+    return body;
+}
+
+std::shared_ptr<EvalEnv> LambdaValue::get_captured_env() const {
+    return captured_env;
+}
 bool Value::isNumber(){
     return typeid(*this) == typeid(NumericValue);
 }
@@ -150,12 +173,12 @@ bool Value::isProcedure(){
     return typeid(*this) == typeid(BuiltinProcValue);
 }
 
-int Value::asNumber(){
+double Value::asNumber(){
     throw LispError("Not a NumericValue");
 }
 
-int NumericValue::asNumber(){
-    return static_cast<int>(value);
+double NumericValue::asNumber(){
+    return value!=static_cast<int>(value)?value:static_cast<int>(value);
 }
 
 bool Value::isLispFalse(){

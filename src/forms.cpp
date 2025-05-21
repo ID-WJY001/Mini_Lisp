@@ -33,15 +33,16 @@ ValuePtr defineForm(const std::vector<ValuePtr>& args, EvalEnv& env) {
     if (args.size() < 2) { 
         throw LispError("Invalid Definition: `define` requires at least a name and a value/body.");
     }
-    if (args[0]->isPair()) {
+    if (args[0]->isPair()) { // 函数定义 (define (f params...) body...)
         if (args.size() < 2) {
              throw LispError("Invalid function definition: `define` for function needs name/params and at least one body expression.");
         }
-        auto func_spec_pair = std::dynamic_pointer_cast<PairValue>(args[0]);
-        if (!func_spec_pair) {
+        ValuePtr func_spec_pair = args[0]; 
+        auto pair_spec = std::dynamic_pointer_cast<PairValue>(func_spec_pair);
+        if (!pair_spec) {
             throw LispError("Internal error: expected a pair for function specification.");
         }
-        ValuePtr func_name_val = func_spec_pair->l;
+        ValuePtr func_name_val = pair_spec->l;
         if (!func_name_val->isSymbol()) {
             throw LispError("Invalid function definition: function name must be a symbol.");
         }
@@ -49,40 +50,37 @@ ValuePtr defineForm(const std::vector<ValuePtr>& args, EvalEnv& env) {
         if (!func_name_opt) {
             throw LispError("Internal error: function symbol has no name.");
         }
-        const std::string& function_name_str = *func_name_opt;
-        ValuePtr lisp_param_list = func_spec_pair->r;
-        std::vector<std::string> param_names_vec = get_parameter_names(lisp_param_list);
+        const std::string& function_name_str = *func_name_opt; // 简化获取
+        std::vector<std::string> param_names_vec = get_parameter_names(pair_spec->r);
         std::vector<ValuePtr> body_expressions;
-        for (size_t i = 1; i < args.size(); ++i) {
-            body_expressions.push_back(args[i]);
+        if (args.size() < 2) { 
+             throw LispError("Function definition requires a name/parameters and at least one body expression.");
         }
-        // 如果你的 Lisp 规定 (define (f p) (begin body1 body2 ...))
-        // 那么函数体就是 args[1] 本身，它应该是一个列表 (begin ...)，或者 LambdaValue 需要处理单个表达式作为函数体的情况
-        // 从你的 `args[1]->toVector()` 来看，你可能期望 `args[1]` 是一个包含所有body的列表。
-        // 如果是这样，并且 LambdaValue 的第二个参数期望的是一个 `std::vector<ValuePtr>`
-        // 代表多个顶级表达式，那么上面的 for 循环是正确的。
-        // 如果 `LambdaValue` 的 body 就是一个单一的 `ValuePtr` (可能是 `begin` 表达式)，
-        // 那么你需要调整。
-        // 目前我假设 `LambdaValue` 的第二个参数 `std::vector<ValuePtr> body` 指的是顶级函数体表达式的列表。
-        env.symbol_map[function_name_str] = std::make_shared<LambdaValue>(function_name_str, param_names_vec, body_expressions);
+        body_expressions.assign(args.begin() + 1, args.end());
+            if (body_expressions.empty()){
+            throw LispError("Function body cannot be empty.");
+        }
+        auto lambda_val = std::make_shared<LambdaValue>(function_name_str, param_names_vec, body_expressions, env.shared_from_this());
+        env.defineBinding(function_name_str, lambda_val); 
         return std::make_shared<NilValue>();
     }
+    // ... (变量定义部分)
     else if (args[0]->isSymbol()) {
         if (args.size() != 2) {
             throw LispError("Invalid variable definition: `define` for variable needs a name and exactly one value.");
         }
         auto var_name_opt = args[0]->asSymbol();
-        if (!var_name_opt) { 
+        if (!var_name_opt) {
             throw LispError("Internal error: variable symbol has no name.");
         }
         const std::string& variable_name = *var_name_opt;
         ValuePtr value_to_be_evaluated = args[1];
-        ValuePtr evaluated_value = env.eval(value_to_be_evaluated); 
-        env.symbol_map[variable_name] = evaluated_value;
+        ValuePtr evaluated_value = env.eval(value_to_be_evaluated);
+        env.defineBinding(variable_name, evaluated_value); // 使用 defineBinding
         return std::make_shared<NilValue>();
     }
     else {
-        throw LispError("Invalid Definition: first argument to `define` must be a symbol or a list for function definition.");
+        throw LispError("Invalid Definition: first argument to `define` must be a symbol (for variable) or a list (for function). Actual: " + args[0]->toString());
     }
 }
 
@@ -139,14 +137,18 @@ ValuePtr lambdaForm(const std::vector<ValuePtr>& args, EvalEnv& env) {
     if(args.size() != 2){
         throw LispError("Invalid lambda definition.");
     }
-    if(!args[0]->isPair()){
-        throw LispError("Invalid lambda definition.");
+    ValuePtr params_list_node = args[0];
+    ValuePtr body_node = args[1];
+    std::vector<std::string> param_names_vec = get_parameter_names(params_list_node);
+    std::vector<ValuePtr> body_expressions;
+    if (args.size() < 2) {
+         throw LispError("Lambda form requires parameters and at least one body expression.");
     }
-    if(!args[1]->isPair()){
-        throw LispError("Invalid lambda definition.");
+    body_expressions.assign(args.begin() + 1, args.end());
+    if (body_expressions.empty()){
+        throw LispError("Lambda body cannot be empty.");
     }
-    std::vector<std::string> param_names_vec = get_parameter_names(args[0]);
-    return std::make_shared<LambdaValue>("<lambda>", param_names_vec, args[1]->toVector());
+    return std::make_shared<LambdaValue>("<lambda>", param_names_vec, body_expressions, env.shared_from_this());
 }
 
 const std::unordered_map<std::string, SpecialFormType*> SPECIAL_FORMS{

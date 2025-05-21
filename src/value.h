@@ -5,6 +5,8 @@
 #include <memory>
 #include <optional>
 
+class EvalEnv;
+
 class Value{
 public:
     virtual ~Value()=default;
@@ -18,7 +20,7 @@ public:
     bool isSymbol();
     bool isList();
     bool isProcedure();
-    virtual int asNumber();
+    virtual double asNumber();
     virtual std::optional<std::string> asSymbol();
     virtual std::string asString();
     std::vector<std::shared_ptr<Value>> toVector();
@@ -44,7 +46,7 @@ private:
 public:
     NumericValue(double value);
     std::string toString()const override;
-    int asNumber()override;
+    double asNumber()override;
 };
 
 class StringValue:public Value{
@@ -95,10 +97,14 @@ private:
     std::string name;
     std::vector<std::string> params;
     std::vector<ValuePtr> body;
-    // [...]
+    std::shared_ptr<EvalEnv> captured_env;
 public:
-    LambdaValue(std::string name, std::vector<std::string> params, std::vector<ValuePtr> body):name{name}, params{params}, body{body}{}
+    ValuePtr apply(const std::vector<ValuePtr>& args);
+    LambdaValue(std::string name, const std::vector<std::string>& params, const std::vector<ValuePtr>& body, std::shared_ptr<EvalEnv> env);
     std::string toString() const override; 
+    const std::vector<std::string>& get_params() const;
+    const std::vector<ValuePtr>& get_body() const;
+    std::shared_ptr<EvalEnv> get_captured_env() const;
 };
   
 ValuePtr toList(std::vector<ValuePtr>& params);
