@@ -3,8 +3,8 @@
 #include "error.h"
 #include "token.h"
 
-#include <unordered_map>
+#include <map>
 
-using BuiltinProceduresMap = std::unordered_map<std::string, ValuePtr>;
+using BuiltinProceduresMap = std::map<std::string, std::shared_ptr<BuiltinProcValue>>;
 
 const BuiltinProceduresMap& get_builtin_procedures();

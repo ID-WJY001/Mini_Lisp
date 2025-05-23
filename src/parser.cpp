@@ -2,6 +2,7 @@
 #include "parser.h"
 #include "token.h"
 #include "./error.h"
+#include "eval_env.h"
 ValuePtr Parser::parse() {
     if (tokens.empty()) {
         throw SyntaxError("Unexpected end of input: no token to parse.");
@@ -15,15 +16,15 @@ ValuePtr Parser::parse() {
         }
         case TokenType::BOOLEAN_LITERAL: {
             auto value = static_cast<BooleanLiteralToken&>(*token).getValue();
-            return std::make_shared<BooleanValue>(value);
+            return value?LISP_TRUE:LISP_FALSE;
         }
         case TokenType::STRING_LITERAL: {
             auto value = static_cast<StringLiteralToken&>(*token).getValue();
             return std::make_shared<StringValue>(value);
         }
         case TokenType::IDENTIFIER: {
-            auto value = static_cast<IdentifierToken&>(*token).getName();
-            return std::make_shared<SymbolValue>(value);
+            auto name_str = static_cast<IdentifierToken&>(*token).getName();
+            return create_or_get_symbol(name_str);
         }
         case TokenType::LEFT_PAREN: {
             return this->parseTails();
@@ -34,8 +35,8 @@ ValuePtr Parser::parse() {
             }
             ValuePtr expr = this->parse();
             return std::make_shared<PairValue>(
-                std::make_shared<SymbolValue>("quote"),
-                std::make_shared<PairValue>(expr, std::make_shared<NilValue>())
+                create_or_get_symbol("quote"),
+                std::make_shared<PairValue>(expr, LISP_NIL)
             );
         }
         case TokenType::QUASIQUOTE: {
@@ -44,8 +45,8 @@ ValuePtr Parser::parse() {
             }
             ValuePtr expr = this->parse();
             return std::make_shared<PairValue>(
-                std::make_shared<SymbolValue>("quasiquote"),
-                std::make_shared<PairValue>(expr, std::make_shared<NilValue>())
+                 create_or_get_symbol("quasiquote"),
+                std::make_shared<PairValue>(expr, LISP_NIL) 
             );
         }
         case TokenType::UNQUOTE: {
@@ -54,8 +55,8 @@ ValuePtr Parser::parse() {
             }
             ValuePtr expr = this->parse();
             return std::make_shared<PairValue>(
-                std::make_shared<SymbolValue>("unquote"),
-                std::make_shared<PairValue>(expr, std::make_shared<NilValue>())
+                create_or_get_symbol("unquote"),
+                std::make_shared<PairValue>(expr, LISP_NIL)
             );
         }
         case TokenType::RIGHT_PAREN:
@@ -73,7 +74,7 @@ ValuePtr Parser::parseTails() {
     }
     if (tokens.front()->getType() == TokenType::RIGHT_PAREN) {
         tokens.pop_front();
-        return std::make_shared<NilValue>();
+        return LISP_NIL;
     }
     ValuePtr car = this->parse();
     if (tokens.empty()) {

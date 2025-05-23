@@ -7,6 +7,7 @@
 #include <iostream>
 #include <iomanip>
 
+extern const ValuePtr LISP_NIL;
 BooleanValue::BooleanValue(bool value) : value(value) {}
 
 std::string BooleanValue::toString() const {
@@ -61,7 +62,7 @@ std::string PairValue::toString() const {
 }
 
 bool Value::isSelfEvaluating() {
-    return typeid(*this) == typeid(BooleanValue) || typeid(*this) == typeid(NumericValue) || typeid(*this) == typeid(BuiltinProcValue) || typeid(*this) == typeid(StringValue);
+    return typeid(*this) == typeid(BooleanValue) || typeid(*this) == typeid(NumericValue) || typeid(*this) == typeid(StringValue);
 }
 
 bool Value::isNil() {
@@ -117,16 +118,7 @@ std::string BuiltinProcValue :: toString() const {
     return "#<procedure>";
 }
 
-LambdaValue::LambdaValue(std::string name,
-                         const std::vector<std::string>& params,
-                         const std::vector<ValuePtr>& body,
-                         std::shared_ptr<EvalEnv> env)
-    : name(std::move(name)),
-      params(params),
-      body(body),
-      captured_env(std::move(env)) {
-    // Constructor body, if any
-}
+LambdaValue::LambdaValue(std::string name, const std::vector<std::string>& params, const std::vector<ValuePtr>& body, std::shared_ptr<EvalEnv> env) : name(std::move(name)), params(params), body(body), captured_env(std::move(env)) {}
 
 std::string LambdaValue::toString() const {
     return "#<procedure>";
@@ -151,7 +143,14 @@ bool Value::isString(){
     return typeid(*this) == typeid(StringValue);
 }
 
+bool Value::isLambda(){
+    return typeid(*this) == typeid(LambdaValue);
+}
+
 bool Value::isList(){
+    if(this->isNil()){
+        return true;
+    }
     if(!this->isPair()){
         return false;
     }
@@ -170,7 +169,7 @@ bool Value::isList(){
 }
 
 bool Value::isProcedure(){
-    return typeid(*this) == typeid(BuiltinProcValue);
+    return typeid(*this) == typeid(BuiltinProcValue) || typeid(*this) == typeid(LambdaValue);
 }
 
 double Value::asNumber(){
@@ -178,7 +177,7 @@ double Value::asNumber(){
 }
 
 double NumericValue::asNumber(){
-    return value!=static_cast<int>(value)?value:static_cast<int>(value);
+    return value;
 }
 
 bool Value::isLispFalse(){
@@ -199,13 +198,13 @@ std::string StringValue::asString(){
 
 ValuePtr toList(std::vector<ValuePtr>& params){
     if (params.empty()){
-        return std::make_shared<NilValue>();
+        return LISP_NIL;
     }
-    auto head = std::make_shared<PairValue>(params.front(), std::make_shared<NilValue>());
+    auto head = std::make_shared<PairValue>(params.front(), LISP_NIL);
     ValuePtr current = head;
     params.erase(params.begin());
     while(!params.empty()){
-        auto newPair = std::make_shared<PairValue>(params.front(), std::make_shared<NilValue>());
+        auto newPair = std::make_shared<PairValue>(params.front(), LISP_NIL);
         static_cast<PairValue*>(current.get())->r = newPair;
         current = newPair;
         params.erase(params.begin());

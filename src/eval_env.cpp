@@ -7,82 +7,77 @@
 
 using namespace std::literals;
 
-ValuePtr EvalEnv::eval(const ValuePtr &expr) {
-    if (auto name_opt = expr->asSymbol()) {
-        const std::string& name = *name_opt;
-        return this->lookupBinding(name);
+const ValuePtr LISP_NIL = std::make_shared<NilValue>();
+const ValuePtr LISP_TRUE = std::make_shared<BooleanValue>(1);
+const ValuePtr LISP_FALSE = std::make_shared<BooleanValue>(0);
+
+std::unordered_map<std::string, ValuePtr> global_symbol_table;
+
+ValuePtr create_or_get_symbol(const std::string& name) {
+    auto it = global_symbol_table.find(name);
+    if (it != global_symbol_table.end()) {
+        return it->second;
+    } else {
+        ValuePtr new_symbol = std::make_shared<SymbolValue>(name);
+        global_symbol_table[name] = new_symbol;
+        return new_symbol;
     }
-    if ((*expr).isSelfEvaluating()) {
+}
+
+ValuePtr EvalEnv::eval(const ValuePtr &expr) {
+    if (expr->isSymbol()) {
+        auto name_opt = expr->asSymbol();
+        return this->lookupBinding(*name_opt);
+    }
+    if (expr->isNumber() || expr->isString() || expr->isBoolean()) {
         return expr;
-    } 
-    if ((*expr).isNil()) {
-        throw LispError("Evaluating nil is prohibited.");
+    }
+    if (expr->isNil()) {
+        return expr;
+    }
+    if (expr->isProcedure()) {
+        return expr;
     }
     if (expr->isPair()) {
-        std::vector<ValuePtr> elements_vec;
-        try {
-            // 例如，对于 (define x 10)，elements_vec 是 [ValuePtr(Symbol("define")), ValuePtr(Symbol("x")), ValuePtr(Number(10))]
-            // 对于 (+ 1 2)，elements_vec 是 [ValuePtr(Symbol("+")), ValuePtr(Number(1)), ValuePtr(Number(2))]
-            elements_vec = expr->toVector();
-        } catch (const std::runtime_error& e) {
-            throw LispError("Invalid List structure for evaluation: "s + e.what()); // "Invaild" -> "Invalid"
-        }
+        std::vector<ValuePtr> elements_vec = expr->toVector();
         if (elements_vec.empty()) {
-            // 这个情况理论上不应通过 isPair() 为真且 toVector() 为空到达。
-            // 原始代码错误信息："Attempt to evaluate a NilValue."
-            // 如果到达此状态，使用更通用的消息。
             throw LispError("Attempt to evaluate an empty application form.");
         }
-        ValuePtr op_expr = elements_vec[0]; // 操作符或特殊形式的名称
-        // 检查操作符是否为符号，并且是否为特殊形式
-        if (auto op_name_opt = op_expr->asSymbol()) {
+        ValuePtr op_expr = elements_vec[0];
+        if (op_expr->isSymbol()) {
+            auto op_name_opt = op_expr->asSymbol();
             const std::string& op_name = *op_name_opt;
-            auto it_sf = SPECIAL_FORMS.find(op_name); // it_sf 表示 "iterator special form"
+            auto it_sf = SPECIAL_FORMS.find(op_name);
             if (it_sf != SPECIAL_FORMS.end()) {
-                SpecialFormType* form_func = it_sf->second; // 获取处理函数指针
+                SpecialFormType* form_func = it_sf->second; 
                 std::vector<ValuePtr> form_args;
                 if (elements_vec.size() > 1) {
                     form_args.assign(elements_vec.begin() + 1, elements_vec.end());
                 }
-                // 它应该使用 std::make_shared<EvalEnv>(this->shared_from_this())
-                // 或 std::make_shared<EvalEnv>(env.get_shared_this()) 来创建子环境。
                 return form_func(form_args, *this);
             }
         }
         ValuePtr proc_object = this->eval(op_expr);
-        ValuePtr cdr_part_of_expr = std::make_shared<NilValue>();
-        if (expr->isPair()){
-            PairValue* original_pair = static_cast<PairValue*>(expr.get());
-            if(original_pair) {
-                cdr_part_of_expr = original_pair->r; 
-            }
-            else {
-                throw LispError("Internal error: expr->isPair() is true but static_cast to PairValue failed.");
-            }
+        if (!proc_object->isProcedure()) {
+            throw LispError("Operator is not a procedure.");
         }
-        else {
-            throw LispError("Internal error: PairValue expected for procedure call arguments preparation.");
-        }
-
-        std::vector<ValuePtr> evaluated_args = this->evalList(cdr_part_of_expr);
+        ValuePtr args_expressions_list = std::static_pointer_cast<PairValue>(expr)->r;
+        std::vector<ValuePtr> evaluated_args = this->evalList(args_expressions_list);
         return this->apply(proc_object, evaluated_args);
     }
-
     throw LispError("Cannot evaluate unexpected value type: " + expr->toString());
 }
 
 ValuePtr EvalEnv::apply(ValuePtr proc_object, std::vector<ValuePtr> args) {
-    // 处理 BuiltinProcValue
-    if (typeid(*proc_object) == typeid(BuiltinProcValue)) { // 或者用 dynamic_pointer_cast
+    if (typeid(*proc_object) == typeid(BuiltinProcValue)) {
         auto builtin_proc = std::static_pointer_cast<BuiltinProcValue>(proc_object);
-        BuiltinFuncType* func_to_call = builtin_proc->get_function_pointer();
+        BuiltinFuncType func_to_call = builtin_proc->get_function_pointer();
         if (func_to_call) {
             try {
-                return func_to_call(args);
+                return func_to_call(args, *this);
             } catch (const LispError& e) {
                 throw;
             } catch (const std::exception& e) {
-                // 最好包装成 LispError，或者至少记录信息
                 throw LispError("Exception in builtin procedure " + proc_object->toString() + ": " + e.what());
             }
         }
@@ -101,44 +96,34 @@ ValuePtr EvalEnv::apply(ValuePtr proc_object, std::vector<ValuePtr> args) {
         for (size_t i = 0; i < formal_params.size(); ++i) {
            call_env->defineBinding(formal_params[i], args[i]);
         }
-        ValuePtr result = std::make_shared<NilValue>(); // 默认
+        ValuePtr result = LISP_NIL; 
         for (const auto& body_expr : body_expressions) {
            result = call_env->eval(body_expr);
         }
         return result;
     }
-    else { // 如果不是 BuiltinProcValue，并且没有处理 LambdaValue，就会执行到这里
+    else {
         throw LispError("Unimplemented: Cannot apply non-builtin procedure: " + proc_object->toString());
-        // 或者更具体点，如果 proc_object 是 LambdaValue 但你还没写处理它的代码：
-        // if (std::dynamic_pointer_cast<LambdaValue>(proc_object)) {
-        //     throw LispError("Unimplemented: Lambda application not yet fully implemented.");
-        // } else {
-        //     throw LispError("Cannot apply non-procedure value: " + proc_object->toString());
-        // }
     }
 }
 
 std::vector<ValuePtr> EvalEnv::evalList(ValuePtr expr_containing_args) {
     if (expr_containing_args->isNil()) {
-        return {}; // 空的参数列表求值为空的值向量
+        return {};
     }
-    // `evalList` 期望一个合法的参数列表。
-    // 如果 `expr_containing_args` 不是 pair (且不是 Nil)，则它是一个不正确的参数列表。
     if (!expr_containing_args->isPair()) {
-        throw LispError("Invalid argument list structure for evalList: expected a proper list, got " + expr_containing_args->toString()); // "Invaalid" -> "Invalid"
+        throw LispError("Invalid argument list structure for evalList: expected a proper list, got " + expr_containing_args->toString()); 
     }
 
     std::vector<ValuePtr> result;
     std::vector<ValuePtr> unevaluated_arg_expressions;
     try {
-        // 这假设 expr_containing_args 是一个合法的列表。
-        // toVector() 应该处理这个问题。
         unevaluated_arg_expressions = expr_containing_args->toVector();
     } catch (const std::runtime_error& e) {
-        throw LispError("Invalid argument list structure during toVector in evalList: "s + e.what()); // "Invaalid" -> "Invalid"
+        throw LispError("Invalid argument list structure during toVector in evalList: "s + e.what()); 
     }
 
-    for (ValuePtr& expr_to_eval : unevaluated_arg_expressions) { // 将 ValuePtr 按引用传递给 eval
+    for (ValuePtr& expr_to_eval : unevaluated_arg_expressions) { 
         result.push_back(this->eval(expr_to_eval));
     }
     return result;

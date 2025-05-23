@@ -20,6 +20,7 @@ public:
     bool isSymbol();
     bool isList();
     bool isProcedure();
+    bool isLambda();
     virtual double asNumber();
     virtual std::optional<std::string> asSymbol();
     virtual std::string asString();
@@ -80,26 +81,24 @@ public:
     std::string toString()const override;
 };
 
-using BuiltinFuncType = ValuePtr(const std::vector<ValuePtr>&);
+using BuiltinFuncType = ValuePtr (*)(const std::vector<ValuePtr>& args, EvalEnv& env);
 
 class BuiltinProcValue : public Value {
-    BuiltinFuncType* func;
+    BuiltinFuncType func;
 public:
-    BuiltinProcValue(BuiltinFuncType* func):func{func}{}
+    BuiltinProcValue(BuiltinFuncType func):func{func}{}
     std::string toString()const override;
-    BuiltinFuncType* get_function_pointer(){
+    BuiltinFuncType get_function_pointer(){
         return func;
     }
 };
 
 class LambdaValue : public Value {
-private:
+public:
     std::string name;
     std::vector<std::string> params;
     std::vector<ValuePtr> body;
     std::shared_ptr<EvalEnv> captured_env;
-public:
-    ValuePtr apply(const std::vector<ValuePtr>& args);
     LambdaValue(std::string name, const std::vector<std::string>& params, const std::vector<ValuePtr>& body, std::shared_ptr<EvalEnv> env);
     std::string toString() const override; 
     const std::vector<std::string>& get_params() const;
