@@ -12,7 +12,27 @@ const ValuePtr LISP_TRUE = std::make_shared<BooleanValue>(1);
 const ValuePtr LISP_FALSE = std::make_shared<BooleanValue>(0);
 
 std::unordered_map<std::string, ValuePtr> global_symbol_table;
-
+ValuePtr EvalEnv::expandQuasiquote(const ValuePtr& tmpl) {
+    if (!tmpl->isPair()) {
+        return tmpl;
+    }
+    if (tmpl->isNil()) {
+        return tmpl;
+    }
+    auto car = std::static_pointer_cast<PairValue>(tmpl)->l;
+    if (car->isSymbol() && car->asSymbol() && *car->asSymbol() == "unquote") {
+        auto cdr = std::static_pointer_cast<PairValue>(tmpl)->r;
+        if (!cdr->isPair() || std::static_pointer_cast<PairValue>(cdr)->r->isNil() == false) {
+            throw LispError("unquote: expects exactly one argument");
+        }
+        auto expr_to_eval = std::static_pointer_cast<PairValue>(cdr)->l;
+        return this->eval(expr_to_eval);
+    }
+    
+    auto expanded_car = this->expandQuasiquote(car);
+    auto expanded_cdr = this->expandQuasiquote(std::static_pointer_cast<PairValue>(tmpl)->r);
+    return std::make_shared<PairValue>(expanded_car, expanded_cdr);
+}
 ValuePtr create_or_get_symbol(const std::string& name) {
     auto it = global_symbol_table.find(name);
     if (it != global_symbol_table.end()) {
@@ -58,6 +78,22 @@ ValuePtr EvalEnv::eval(const ValuePtr &expr) {
             }
         }
         ValuePtr proc_object = this->eval(op_expr);
+        if (auto macro = std::dynamic_pointer_cast<MacroValue>(proc_object)) {
+            ValuePtr args_expr = std::static_pointer_cast<PairValue>(expr)->r;
+            std::vector<ValuePtr> arg_values;
+            if (!args_expr->isNil()) {
+                arg_values = args_expr->toVector();
+            }
+            if (macro->params.size() != arg_values.size()) {
+                throw LispError("Macro argument count mismatch");
+            }
+            auto macro_env = std::make_shared<EvalEnv>(this->shared_from_this());
+            for (size_t i = 0; i < macro->params.size(); ++i) {
+                macro_env->defineBinding(macro->params[i], arg_values[i]);
+            }
+            auto expanded = macro_env->eval(macro->body);
+            return this->eval(expanded);
+        }
         if (!proc_object->isProcedure()) {
             throw LispError("Operator is not a procedure.");
         }

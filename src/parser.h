@@ -12,6 +12,7 @@ public:
     Parser(std::deque<TokenPtr>tokens):tokens(std::move(tokens)){}
     ValuePtr parse();
     ValuePtr parseTails();
+    bool isAtEnd() const;
 };
 
 #endif

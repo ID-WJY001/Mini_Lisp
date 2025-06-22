@@ -1,6 +1,7 @@
 #include "value.h"
 #include "error.h"
-
+#include <sstream>
+#include <numeric>
 #include <string>
 #include <vector>
 #include <memory>
@@ -62,7 +63,10 @@ std::string PairValue::toString() const {
 }
 
 bool Value::isSelfEvaluating() {
-    return typeid(*this) == typeid(BooleanValue) || typeid(*this) == typeid(NumericValue) || typeid(*this) == typeid(StringValue);
+    return typeid(*this) == typeid(BooleanValue)
+        || typeid(*this) == typeid(NumericValue)
+        || typeid(*this) == typeid(StringValue)
+        || typeid(*this) == typeid(RationalValue);
 }
 
 bool Value::isNil() {
@@ -136,7 +140,7 @@ std::shared_ptr<EvalEnv> LambdaValue::get_captured_env() const {
     return captured_env;
 }
 bool Value::isNumber(){
-    return typeid(*this) == typeid(NumericValue);
+    return typeid(*this) == typeid(NumericValue) || typeid(*this) == typeid(RationalValue);
 }
 
 bool Value::isString(){
@@ -218,4 +222,30 @@ bool Value::getboolValue(){
 
 bool BooleanValue::getboolValue(){
     return value;
+}
+
+RationalValue::RationalValue(int num, int denom) : numerator(num), denominator(denom) {
+    reduce();
+}
+
+void RationalValue::reduce() {
+    int g = std::gcd(numerator, denominator);
+    if (g != 0) {
+        numerator /= g;
+        denominator /= g;
+    }
+    // 保证分母为正
+    if (denominator < 0) {
+        numerator = -numerator;
+        denominator = -denominator;
+    }
+}
+
+std::string RationalValue::toString() const {
+    if (denominator == 1) return std::to_string(numerator);
+    return std::to_string(numerator) + "/" + std::to_string(denominator);
+}
+
+double RationalValue::asNumber() {
+    return static_cast<double>(numerator) / denominator;
 }

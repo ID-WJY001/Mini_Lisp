@@ -3,9 +3,14 @@
 #include "token.h"
 #include "./error.h"
 #include "eval_env.h"
+
+bool Parser::isAtEnd() const {
+    return tokens.empty();
+}
+
 ValuePtr Parser::parse() {
     if (tokens.empty()) {
-        throw SyntaxError("Unexpected end of input: no token to parse.");
+        return nullptr;
     }
     TokenPtr token = std::move(tokens.front());
     tokens.pop_front();

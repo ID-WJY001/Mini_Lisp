@@ -48,6 +48,7 @@ public:
     NumericValue(double value);
     std::string toString()const override;
     double asNumber()override;
+    double getValue() const { return value; }
 };
 
 class StringValue:public Value{
@@ -57,6 +58,7 @@ public:
     StringValue(const std::string& value);
     std::string toString()const override;
     std::string asString()override;
+    const std::string& getValue() const { return value; }
 };
 
 class NilValue:public Value{
@@ -105,7 +107,29 @@ public:
     const std::vector<ValuePtr>& get_body() const;
     std::shared_ptr<EvalEnv> get_captured_env() const;
 };
-  
+class RationalValue : public Value {
+private:
+    int numerator;
+    int denominator;
+    void reduce(); // 约分
+public:
+    RationalValue(int num, int denom);
+    int getNumerator() const { return numerator; }
+    int getDenominator() const { return denominator; }
+    std::string toString() const override;
+    double asNumber() override;
+};
+class MacroValue : public Value {
+public:
+    std::vector<std::string> params;
+    ValuePtr body;
+    MacroValue(const std::vector<std::string>& params, ValuePtr body)
+        : params(params), body(body) {}
+    std::string toString() const override {
+        return "#<macro>";
+    }
+};
+
 ValuePtr toList(std::vector<ValuePtr>& params);
 
 #endif

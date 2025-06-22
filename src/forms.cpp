@@ -172,37 +172,29 @@ ValuePtr quoteForm(const std::vector<ValuePtr>& args, EvalEnv& env) {
 }
 
 ValuePtr quasiquoteForm(const std::vector<ValuePtr>& args, EvalEnv& env) {
-    if (args.size() != 1){
-        throw LispError("Invalid Quasiuote: quasiquote needs only one value.");
+    if (args.size() != 1) {
+        throw LispError("quasiquote: expects exactly one argument");
     }
-    auto it = args[0]->toVector();
-    std::vector<ValuePtr>new_vector{};
-    for(auto i : it){
-        new_vector.push_back(env.eval(i));
-    }
-    return toList(new_vector);
-}
-
-ValuePtr unquoteForm(const std::vector<ValuePtr>& args, EvalEnv& env) {
-    if (args.size() != 1){
-        throw LispError("Invalid Unquote: unquote needs only one value.");
-    }
-    return env.eval(args[0]);
+    return env.expandQuasiquote(args[0]);
 }
 
 ValuePtr ifForm(const std::vector<ValuePtr>& args, EvalEnv& env) {
-    if (args.size() != 3) {
-        throw LispError("Invalid Definition: if needs only 3 values.");
+    if (args.size() != 2 && args.size() != 3) {
+        throw LispError("if: bad syntax. Expected (if condition then-expr [else-expr])");
     }
+    
     ValuePtr condition_expression = args[0];
     ValuePtr condition_result = env.eval(condition_expression);
-    if (!condition_result->isLispFalse()) { // 如果条件不是 Lisp false (即是 Lisp true)
-        ValuePtr branch = args[1];
-        return env.eval(branch);
-    } 
-    else { // 如果条件是 Lisp false
-        ValuePtr branch = args[2];
-        return env.eval(branch);
+    if (!condition_result->isLispFalse()) {
+        ValuePtr then_branch = args[1];
+        return env.eval(then_branch);
+    } else {
+        if (args.size() == 3) {
+            ValuePtr else_branch = args[2];
+            return env.eval(else_branch);
+        } else {
+            return std::make_shared<NilValue>(); 
+        }
     }
 }
 
@@ -250,6 +242,22 @@ ValuePtr lambdaForm(const std::vector<ValuePtr>& args, EvalEnv& env) {
     return std::make_shared<LambdaValue>("<lambda>", param_names_vec, body_expressions, env.shared_from_this());
 }
 
+ValuePtr defineMacroForm(const std::vector<ValuePtr>& args, EvalEnv& env) {
+    if (args.size() < 3) {
+        throw LispError("define-macro: expects (name (params) body)");
+    }
+    // 解析名字
+    auto name_sym = std::dynamic_pointer_cast<SymbolValue>(args[0]);
+    if (!name_sym) throw LispError("define-macro: first argument must be symbol");
+    // 解析参数
+    std::vector<std::string> param_names = get_parameter_names(args[1]);
+    // 宏体
+    ValuePtr body = args[2];
+    auto macro = std::make_shared<MacroValue>(param_names, body);
+    env.defineBinding(name_sym->toString(), macro);
+    return macro;
+}
+
 const std::unordered_map<std::string, SpecialFormType*> SPECIAL_FORMS{
     {"cond", condForm},
     {"begin", beginForm},
@@ -257,9 +265,9 @@ const std::unordered_map<std::string, SpecialFormType*> SPECIAL_FORMS{
     {"define", defineForm}, 
     {"quote",  quoteForm},
     {"quasiquote",  quasiquoteForm},
-    {"unquote",  unquoteForm},
     {"if", ifForm},
     {"and", andForm},
     {"or", orForm},
-    {"lambda",lambdaForm}
+    {"lambda",lambdaForm},
+    {"define-macro", defineMacroForm}
 };

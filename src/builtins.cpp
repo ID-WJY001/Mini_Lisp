@@ -2,11 +2,15 @@
 #include <iomanip>
 #include <cmath> 
 #include <cstdlib>
+#include <sstream>
+#include <algorithm>
 #include "builtins.h"
 #include "value.h"   
 #include "eval_env.h"
 #include "error.h" 
-
+#include "token.h"
+#include "tokenizer.h"
+#include "parser.h"
 
 static ValuePtr builtin_apply(const std::vector<ValuePtr>& evaluated_args_for_apply_func, EvalEnv& env) {
     if(evaluated_args_for_apply_func.size() != 2){
@@ -491,6 +495,285 @@ static ValuePtr builtin_is_zero(const std::vector<ValuePtr>& params, EvalEnv& en
     if (!params[0]->isNumber()) throw LispError("zero?: expects a numeric argument.");
     return (params[0]->asNumber() == 0.0)?LISP_TRUE:LISP_FALSE;
 }
+// 字符串操作函数实现
+ValuePtr string_append(const std::vector<ValuePtr>& args, EvalEnv& env) {
+    if (args.empty()) {
+        return std::make_shared<StringValue>("");
+    }
+    
+    std::string result;
+    for (const auto& arg : args) {
+        if (auto str_val = std::dynamic_pointer_cast<StringValue>(arg)) {
+            result += str_val->getValue();
+        } else {
+            throw LispError("string-append: argument must be string");
+        }
+    }
+    return std::make_shared<StringValue>(result);
+}
+
+ValuePtr string_length(const std::vector<ValuePtr>& args, EvalEnv& env) {
+    if (args.size() != 1) {
+        throw LispError("string-length: requires exactly one argument");
+    }
+    
+    if (auto str_val = std::dynamic_pointer_cast<StringValue>(args[0])) {
+        return std::make_shared<NumericValue>(str_val->getValue().length());
+    }
+    throw LispError("string-length: argument must be string");
+}
+
+ValuePtr string_ref(const std::vector<ValuePtr>& args, EvalEnv& env) {
+    if (args.size() != 2) {
+        throw LispError("string-ref: requires exactly two arguments");
+    }
+    
+    if (auto str_val = std::dynamic_pointer_cast<StringValue>(args[0])) {
+        if (auto num_val = std::dynamic_pointer_cast<NumericValue>(args[1])) {
+            size_t index = static_cast<size_t>(num_val->getValue());
+            const std::string& str = str_val->getValue();
+            if (index >= str.length()) {
+                throw LispError("string-ref: index out of range");
+            }
+            return std::make_shared<StringValue>(std::string(1, str[index]));
+        }
+        throw LispError("string-ref: second argument must be number");
+    }
+    throw LispError("string-ref: first argument must be string");
+}
+
+ValuePtr number_to_string(const std::vector<ValuePtr>& args, EvalEnv& env) {
+    if (args.size() != 1) {
+        throw LispError("number->string: requires exactly one argument");
+    }
+    
+    if (auto num_val = std::dynamic_pointer_cast<NumericValue>(args[0])) {
+        std::ostringstream oss;
+        oss << num_val->getValue();
+        return std::make_shared<StringValue>(oss.str());
+    }
+    throw LispError("number->string: argument must be number");
+}
+
+ValuePtr string_to_number(const std::vector<ValuePtr>& args, EvalEnv& env) {
+    if (args.size() != 1) {
+        throw LispError("string->number: requires exactly one argument");
+    }
+    
+    if (auto str_val = std::dynamic_pointer_cast<StringValue>(args[0])) {
+        try {
+            double value = std::stod(str_val->getValue());
+            return std::make_shared<NumericValue>(value);
+        } catch (const std::exception&) {
+            return LISP_FALSE;
+        }
+    }
+    throw LispError("string->number: argument must be string");
+}
+
+// 字符串比较函数实现
+ValuePtr string_equal(const std::vector<ValuePtr>& args, EvalEnv& env) {
+    if (args.size() != 2) {
+        throw LispError("string=?: requires exactly two arguments");
+    }
+    
+    if (auto str1 = std::dynamic_pointer_cast<StringValue>(args[0])) {
+        if (auto str2 = std::dynamic_pointer_cast<StringValue>(args[1])) {
+            return (str1->getValue() == str2->getValue()) ? LISP_TRUE : LISP_FALSE;
+        }
+        throw LispError("string=?: second argument must be string");
+    }
+    throw LispError("string=?: first argument must be string");
+}
+
+ValuePtr string_less(const std::vector<ValuePtr>& args, EvalEnv& env) {
+    if (args.size() != 2) {
+        throw LispError("string<?: requires exactly two arguments");
+    }
+    
+    if (auto str1 = std::dynamic_pointer_cast<StringValue>(args[0])) {
+        if (auto str2 = std::dynamic_pointer_cast<StringValue>(args[1])) {
+            return (str1->getValue() < str2->getValue()) ? LISP_TRUE : LISP_FALSE;
+        }
+        throw LispError("string<?: second argument must be string");
+    }
+    throw LispError("string<?: first argument must be string");
+}
+
+ValuePtr string_greater(const std::vector<ValuePtr>& args, EvalEnv& env) {
+    if (args.size() != 2) {
+        throw LispError("string>?: requires exactly two arguments");
+    }
+    
+    if (auto str1 = std::dynamic_pointer_cast<StringValue>(args[0])) {
+        if (auto str2 = std::dynamic_pointer_cast<StringValue>(args[1])) {
+            return (str1->getValue() > str2->getValue()) ? LISP_TRUE : LISP_FALSE;
+        }
+        throw LispError("string>?: second argument must be string");
+    }
+    throw LispError("string>?: first argument must be string");
+}
+
+// 字符串转换函数实现
+ValuePtr string_upcase(const std::vector<ValuePtr>& args, EvalEnv& env) {
+    if (args.size() != 1) {
+        throw LispError("string-upcase: requires exactly one argument");
+    }
+    
+    if (auto str_val = std::dynamic_pointer_cast<StringValue>(args[0])) {
+        std::string result = str_val->getValue();
+        std::transform(result.begin(), result.end(), result.begin(), ::toupper);
+        return std::make_shared<StringValue>(result);
+    }
+    throw LispError("string-upcase: argument must be string");
+}
+
+ValuePtr string_downcase(const std::vector<ValuePtr>& args, EvalEnv& env) {
+    if (args.size() != 1) {
+        throw LispError("string-downcase: requires exactly one argument");
+    }
+    
+    if (auto str_val = std::dynamic_pointer_cast<StringValue>(args[0])) {
+        std::string result = str_val->getValue();
+        std::transform(result.begin(), result.end(), result.begin(), ::tolower);
+        return std::make_shared<StringValue>(result);
+    }
+    throw LispError("string-downcase: argument must be string");
+}
+
+// 字符串子串函数实现
+ValuePtr substring(const std::vector<ValuePtr>& args, EvalEnv& env) {
+    if (args.size() != 3) {
+        throw LispError("substring: requires exactly three arguments (string start end)");
+    }
+    
+    if (auto str_val = std::dynamic_pointer_cast<StringValue>(args[0])) {
+        if (auto start_val = std::dynamic_pointer_cast<NumericValue>(args[1])) {
+            if (auto end_val = std::dynamic_pointer_cast<NumericValue>(args[2])) {
+                const std::string& str = str_val->getValue();
+                size_t start = static_cast<size_t>(start_val->getValue());
+                size_t end = static_cast<size_t>(end_val->getValue());
+                
+                // 检查索引是否有效
+                if (start > end) {
+                    throw LispError("substring: start index must be less than or equal to end index");
+                }
+                if (end > str.length()) {
+                    throw LispError("substring: end index out of range");
+                }
+                
+                return std::make_shared<StringValue>(str.substr(start, end - start));
+            }
+            throw LispError("substring: third argument must be number");
+        }
+        throw LispError("substring: second argument must be number");
+    }
+    throw LispError("substring: first argument must be string");
+}
+
+// 输入输出函数实现
+ValuePtr readline(const std::vector<ValuePtr>& args, EvalEnv& env) {
+    if (!args.empty()) {
+        throw LispError("readline: expects no arguments");
+    }
+    
+    std::string line;
+    if (std::getline(std::cin, line)) {
+        return std::make_shared<StringValue>(line);
+    }
+    return LISP_NIL;  // 当遇到EOF时返回nil
+}
+
+ValuePtr read(const std::vector<ValuePtr>& args, EvalEnv& env) {
+    if (!args.empty()) {
+        throw LispError("read: expects no arguments");
+    }
+    
+    std::string input;
+    if (std::getline(std::cin, input)) {
+        try {
+            // 使用Tokenizer::tokenize静态方法获取tokens
+            auto tokens = Tokenizer::tokenize(input);
+            // 使用Parser构造函数和parse方法
+            Parser parser(std::move(tokens));
+            return parser.parse();
+        } catch (const std::exception& e) {
+            throw LispError("read: failed to parse input: " + std::string(e.what()));
+        }
+    }
+    return LISP_NIL;  // 当遇到EOF时返回nil
+}
+
+ValuePtr read_multiline(const std::vector<ValuePtr>& args, EvalEnv& env) {
+    if (!args.empty()) {
+        throw LispError("read-multiline: expects no arguments");
+    }
+    
+    std::string input;
+    std::string line;
+    int paren_count = 0;
+    bool in_string = false;
+    bool escaped = false;
+    
+    while (true) {
+        if (std::cin.eof()) {
+            if (input.empty()) {
+                return LISP_NIL;
+            }
+            throw LispError("read-multiline: unexpected end of input");
+        }
+        
+        std::cout << (input.empty() ? ">>> " : "... ");
+        if (!std::getline(std::cin, line)) {
+            if (input.empty()) {
+                return LISP_NIL;
+            }
+            throw LispError("read-multiline: unexpected end of input");
+        }
+        
+        if (input.empty() && line.empty()) {
+            continue;
+        }
+        
+        // 处理字符串和括号计数
+        for (size_t i = 0; i < line.length(); i++) {
+            char c = line[i];
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (c == '\\') {
+                escaped = true;
+                continue;
+            }
+            if (c == '"') {
+                in_string = !in_string;
+                continue;
+            }
+            if (!in_string) {
+                if (c == '(') {
+                    paren_count++;
+                } else if (c == ')') {
+                    paren_count--;
+                }
+            }
+        }
+        
+        input += line + "\n";
+        
+        // 如果括号匹配且不在字符串中，尝试解析
+        if (paren_count == 0 && !in_string) {
+            try {
+                auto tokens = Tokenizer::tokenize(input);
+                Parser parser(std::move(tokens));
+                return parser.parse();
+            } catch (const std::exception& e) {
+                // 如果解析失败，继续读取更多输入
+                continue;
+            }
+        }
+    }
+}
 const BuiltinProceduresMap& get_builtin_procedures() {
     static BuiltinProceduresMap procedures_map_instance; 
     static bool initialized = false;
@@ -542,6 +825,20 @@ const BuiltinProceduresMap& get_builtin_procedures() {
         procedures_map_instance["even?"] = std::make_shared<BuiltinProcValue>(&builtin_is_even);
         procedures_map_instance["odd?"] = std::make_shared<BuiltinProcValue>(&builtin_is_odd);
         procedures_map_instance["zero?"] = std::make_shared<BuiltinProcValue>(&builtin_is_zero);
+        procedures_map_instance["string-append"] = std::make_shared<BuiltinProcValue>(&string_append);
+        procedures_map_instance["string-length"] = std::make_shared<BuiltinProcValue>(&string_length);
+        procedures_map_instance["string-ref"] = std::make_shared<BuiltinProcValue>(&string_ref);
+        procedures_map_instance["number-string"] = std::make_shared<BuiltinProcValue>(&number_to_string);
+        procedures_map_instance["string-number"] = std::make_shared<BuiltinProcValue>(&string_to_number);
+        procedures_map_instance["string=?"] = std::make_shared<BuiltinProcValue>(&string_equal);
+        procedures_map_instance["string<?"] = std::make_shared<BuiltinProcValue>(&string_less);
+        procedures_map_instance["string>?"] = std::make_shared<BuiltinProcValue>(&string_greater);
+        procedures_map_instance["string-upcase"] = std::make_shared<BuiltinProcValue>(&string_upcase);
+        procedures_map_instance["string-downcase"] = std::make_shared<BuiltinProcValue>(&string_downcase);
+        procedures_map_instance["substring"] = std::make_shared<BuiltinProcValue>(&substring);
+        procedures_map_instance["readline"] = std::make_shared<BuiltinProcValue>(&readline);
+        procedures_map_instance["read"] = std::make_shared<BuiltinProcValue>(&read);
+        procedures_map_instance["read-multiline"] = std::make_shared<BuiltinProcValue>(&read_multiline);
         initialized = true;
     }
     return procedures_map_instance;

@@ -80,6 +80,7 @@
         "xlocmes": "cpp",
         "memory_resource": "cpp",
         "string_view": "cpp",
-        "text_encoding": "cpp"
+        "text_encoding": "cpp",
+        "fstream": "cpp"
     }
 }

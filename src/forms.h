@@ -1,4 +1,3 @@
-// file: forms.h
 #ifndef FORMS_H
 #define FORMS_H
 
@@ -24,5 +23,5 @@ ValuePtr ifForm(const std::vector<ValuePtr>& args, EvalEnv& env);
 ValuePtr andForm(const std::vector<ValuePtr>& args, EvalEnv& env);
 ValuePtr orForm(const std::vector<ValuePtr>& args, EvalEnv& env);
 ValuePtr lambdaForm(const std::vector<ValuePtr>& args, EvalEnv& env);
-
-#endif // FORMS_H
+ValuePtr defineMacroForm(const std::vector<ValuePtr>& args, EvalEnv& env);
+#endif 

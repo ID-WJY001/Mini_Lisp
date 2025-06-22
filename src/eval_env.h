@@ -1,5 +1,5 @@
-#ifndef EVAL_ENV_H  // 如果 EVAL_ENV_H 宏未定义
-#define EVAL_ENV_H  // 则定义 EVAL_ENV_H 宏
+#ifndef EVAL_ENV_H 
+#define EVAL_ENV_H 
 
 #include <map>
 #include "./value.h"
@@ -14,6 +14,7 @@ ValuePtr create_or_get_symbol(const std::string& name);
 
 class EvalEnv : public std::enable_shared_from_this<EvalEnv>{
 public:
+    ValuePtr expandQuasiquote(const ValuePtr& tmpl);
     std::shared_ptr<EvalEnv> parent = nullptr;
     EvalEnv();
     EvalEnv(std::shared_ptr<EvalEnv> parent_env) : parent(parent_env) {}
@@ -29,4 +30,4 @@ public:
     }
 };
 
-#endif // EVAL_ENV_H
+#endif 
