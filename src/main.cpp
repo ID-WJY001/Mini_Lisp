@@ -2,14 +2,13 @@
 #include <string>
 #include <fstream> 
 #include <sstream>  
-//#include "rjsj_test.hpp"
+#include "rjsj_test.hpp"
 #include "./tokenizer.h"
 #include "./value.h"
 #include "./parser.h"
 #include "./eval_env.h"
 #include "./error.h"
 
-// 辅助函数：读取文件内容到字符串
 std::string readFileToString(const std::string& filePath) {
     std::ifstream fileStream(filePath);
     if (!fileStream.is_open()) {
@@ -81,10 +80,6 @@ int main(int argc, char* argv[]) {
         return 0; // 文件成功执行完毕，正常退出
     }
 
-    // 【模式二：交互式 REPL 模式】
-    // (如果没有命令行参数，就执行下面的 REPL 代码)
-
-    std::cout << "Welcome to your Mini-Lisp!" << std::endl;
     while (true) {
         std::string full_expression_str;
         int paren_balance = 0;
